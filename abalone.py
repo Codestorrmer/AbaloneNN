@@ -9,6 +9,20 @@ for line in datafile:
 	data.append(line)
 
 DATA_SPLIT = 3500
+MINI_BATCH_SIZE = 10
+EPOCHS = 100
+CHECK = 1
+NUM_HIDDEN = 30
+DROPOUT = 0.5
+PRINTA = 1
+
+def makeOutput(arr):
+	ret = []
+	for i in range(len(arr)):
+		a = [0,0,0,0,0,0]
+		a[arr[i]]=1
+		ret.append(a)
+	return ret
 
 maleAtt = []
 femAtt = []
@@ -23,7 +37,7 @@ for d in data[0:DATA_SPLIT]:
 	atts = x[1:len(x)-1]
 	for i in range(len(atts)):
 		atts[i]=float(atts[i])
-	age = int(x[len(x)-1].strip())
+	age = int(x[len(x)-1].strip())/5
 	if(x[0]=="M"):
 		maleAtt.append(atts)
 		maleAge.append(age)
@@ -33,6 +47,11 @@ for d in data[0:DATA_SPLIT]:
 	if(x[0]=="I"):
 		infAtt.append(atts)
 		infAge.append(age)
+
+maleAge = makeOutput(maleAge)
+femAge = makeOutput(femAge)
+infAge = makeOutput(infAge)
+
 
 tmaleAtt = []
 tfemAtt = []
@@ -47,7 +66,7 @@ for d in data[DATA_SPLIT:]:
 	atts = x[1:len(x)-1]
 	for i in range(len(atts)):
 		atts[i]=float(atts[i])
-	age = int(x[len(x)-1].strip())
+	age = int(x[len(x)-1].strip())/5
 	if(x[0]=="M"):
 		tmaleAtt.append(atts)
 		tmaleAge.append(age)
@@ -58,29 +77,51 @@ for d in data[DATA_SPLIT:]:
 		tinfAtt.append(atts)
 		tinfAge.append(age)
 
-def net_run():
-    fcs = [tf.contrib.layers.real_valued_column("", dimension = 8)]
+tmaleAge = makeOutput(tmaleAge)
+tfemAge = makeOutput(tfemAge)
+tinfAge = makeOutput(tinfAge)
 
-    classifier = tf.contrib.learn.DNNClassifier(feature_columns = fcs, hidden_units[30], n_classes = 6, model_dir="/tmp/abalone_model")
+def weight_variable(shape):
+  initial = tf.truncated_normal(shape, stddev=0.1)
+  return tf.Variable(initial)
 
-    #training_set is defined by the inputs
+def bias_variable(shape):
+  initial = tf.constant(0.1, shape=shape)
+  return tf.Variable(initial)
 
-    def get_train_inputs():
-        x = tf.constant(training_set.data)
-        y = tf.constant(training_set.target)
-        return x, y
+sess = tf.InteractiveSession()
 
-    classifier.fit(input_fn=get_train_inputs, steps=2000)
-
-    def get_test_inputs():
-        x = tf.constant(test_set.data)
-        y = tf.constant(test_set.target)
-
-        return x, y
-
-    accuracy_score = classifier.evaluate(input_fn=get_test_inputs, steps=1)["accuracy"]
-
-    print("\nAccuracy: {0:f}\n".format(accuracy_score))
+x = tf.placeholder(tf.float32, shape = [None,7])
+y_ = tf.placeholder(tf.float32, shape = [None,6])
 
 
+W_0 = weight_variable([7,NUM_HIDDEN])
+b_0 = bias_variable([NUM_HIDDEN])
+h_0 = tf.nn.relu(tf.matmul(x,W_0)+b_0)
+
+keep_prob = tf.placeholder(tf.float32)
+h_0_drop = tf.nn.dropout(h_0, keep_prob)
+
+W_1 = weight_variable([NUM_HIDDEN,6])
+b_1 = bias_variable([6])
+y_1 = tf.matmul(h_0,W_1)+b_1
+
+
+cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_1))
+train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+correct_prediction = tf.equal(tf.argmax(y_1,1), tf.argmax(y_,1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+sess.run(tf.global_variables_initializer())
+for i in range(EPOCHS):
+	for j in range(len(maleAtt)/MINI_BATCH_SIZE):
+		xdata = maleAtt[j*MINI_BATCH_SIZE:(j+1)*MINI_BATCH_SIZE]
+		ydata = maleAge[j*MINI_BATCH_SIZE:(j+1)*MINI_BATCH_SIZE]
+		train_step.run(feed_dict={x: xdata, y_: ydata, keep_prob: DROPOUT})	
+	if(len(maleAtt)%10 != 0):
+		s = (len(maleAtt)/MINI_BATCH_SIZE)*MINI_BATCH_SIZE
+		xdata = maleAtt[s:]	
+		ydata = maleAge[s:]
+		train_step.run(feed_dict={x: xdata, y_: ydata, keep_prob: DROPOUT})	
+	if(i%PRINTA==0):
+		print("test accuracy %g"%accuracy.eval(feed_dict={x: tmaleAtt, y_: tmaleAge, keep_prob: 1.0}))
 
