@@ -117,7 +117,7 @@ for i in range(EPOCHS):
 		xdata = maleAtt[j*MINI_BATCH_SIZE:(j+1)*MINI_BATCH_SIZE]
 		ydata = maleAge[j*MINI_BATCH_SIZE:(j+1)*MINI_BATCH_SIZE]
 		train_step.run(feed_dict={x: xdata, y_: ydata, keep_prob: DROPOUT})	
-	if(len(maleAtt)%10 != 0):
+	if(len(maleAtt)%MINI_BATCH_SIZE != 0):
 		s = (len(maleAtt)/MINI_BATCH_SIZE)*MINI_BATCH_SIZE
 		xdata = maleAtt[s:]	
 		ydata = maleAge[s:]
