@@ -10,14 +10,15 @@ for line in datafile:
 
 DATA_SPLIT = 3500
 MINI_BATCH_SIZE = 10
-EPOCHS = 300
+EPOCHS = 150
 CHECK = 1
-NUM_HIDDEN = 100
-NUM_HIDDEN_2 = 50
+NUM_HIDDEN = 50
+NUM_HIDDEN_2 = 100
 DROPOUT = 0.5
-PRINTA = 50
+PRINTA = 10
+LEARNING_RATE = 5e-3
 #true->print test accuracy, false-> print training accuracy
-PRINTW = True
+PRINTW = False
 
 
 def makeOutput(arr):
@@ -115,30 +116,35 @@ W_2 = weight_variable([NUM_HIDDEN_2,6])
 b_2 = bias_variable([6])
 y_2 = tf.matmul(h_1,W_2)+b_2
 
+#Use to toggle between M/F/I
+trainAtt = infAtt
+testAtt = tinfAtt
+trainAge = infAge
+testAge = tinfAge
 
 cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_2))
-train_step = tf.train.AdamOptimizer(1e-3).minimize(cross_entropy)
+train_step = tf.train.AdamOptimizer(LEARNING_RATE).minimize(cross_entropy)
 correct_prediction = tf.equal(tf.argmax(y_2,1), tf.argmax(y_,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 saver = tf.train.Saver()
 #sess.run(tf.global_variables_initializer())
 saver.restore(sess, "abaloneNet")
-for i in range(EPOCHS):
-	for j in range(len(maleAtt)/MINI_BATCH_SIZE):
-		xdata = maleAtt[j*MINI_BATCH_SIZE:(j+1)*MINI_BATCH_SIZE]
-		ydata = maleAge[j*MINI_BATCH_SIZE:(j+1)*MINI_BATCH_SIZE]
+for i in range(1,EPOCHS+1):
+	for j in range(len(trainAtt)/MINI_BATCH_SIZE):
+		xdata = trainAtt[j*MINI_BATCH_SIZE:(j+1)*MINI_BATCH_SIZE]
+		ydata = trainAge[j*MINI_BATCH_SIZE:(j+1)*MINI_BATCH_SIZE]
 		train_step.run(feed_dict={x: xdata, y_: ydata, keep_prob: DROPOUT})	
-	if(len(maleAtt)%MINI_BATCH_SIZE != 0):
-		s = (len(maleAtt)/MINI_BATCH_SIZE)*MINI_BATCH_SIZE
-		xdata = maleAtt[s:]	
-		ydata = maleAge[s:]
+	if(len(trainAtt)%MINI_BATCH_SIZE != 0):
+		s = (len(trainAtt)/MINI_BATCH_SIZE)*MINI_BATCH_SIZE
+		xdata = trainAtt[s:]	
+		ydata = trainAge[s:]
 		train_step.run(feed_dict={x: xdata, y_: ydata, keep_prob: DROPOUT})	
 	if(i%PRINTA==0):
 		print("Epoch %d"%(i))
 		if(PRINTW):
-			print("test accuracy %g"%accuracy.eval(feed_dict={x: tmaleAtt, y_: tmaleAge, keep_prob: 1.0}))
+			print("test accuracy %g"%accuracy.eval(feed_dict={x: testAtt, y_: testAge, keep_prob: 1.0}))
 		else:
-			print("training accuracy %g"%accuracy.eval(feed_dict={x: maleAtt, y_: maleAge, keep_prob: 1.0}))
+			print("training accuracy %g"%accuracy.eval(feed_dict={x: trainAtt, y_: trainAge, keep_prob: 1.0}))
 
 save_path = saver.save(sess, "abaloneNet")
 
