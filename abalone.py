@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
 data = []
 
@@ -8,17 +9,19 @@ datafile = open("abalonedata.txt","r")
 for line in datafile:
 	data.append(line)
 
-DATA_SPLIT = 3500
+DATA_SPLIT = 4100
 MINI_BATCH_SIZE = 10
 EPOCHS = 150
 CHECK = 1
-NUM_HIDDEN = 50
+NUM_HIDDEN = 100
 NUM_HIDDEN_2 = 100
 DROPOUT = 0.5
 PRINTA = 10
 LEARNING_RATE = 5e-3
 #true->print test accuracy, false-> print training accuracy
-PRINTW = False
+PRINTW = True
+
+maxAge = 0
 
 
 def makeOutput(arr):
@@ -83,6 +86,7 @@ for d in data[DATA_SPLIT:]:
 		tinfAtt.append(atts)
 		tinfAge.append(age)
 
+
 tmaleAge = makeOutput(tmaleAge)
 tfemAge = makeOutput(tfemAge)
 tinfAge = makeOutput(tinfAge)
@@ -122,13 +126,15 @@ testAtt = tinfAtt
 trainAge = infAge
 testAge = tinfAge
 
+accuracyArr = []
+
 cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_2))
 train_step = tf.train.AdamOptimizer(LEARNING_RATE).minimize(cross_entropy)
 correct_prediction = tf.equal(tf.argmax(y_2,1), tf.argmax(y_,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 saver = tf.train.Saver()
-#sess.run(tf.global_variables_initializer())
-saver.restore(sess, "abaloneNet")
+sess.run(tf.global_variables_initializer())
+#saver.restore(sess, "abaloneNet")
 for i in range(1,EPOCHS+1):
 	for j in range(len(trainAtt)/MINI_BATCH_SIZE):
 		xdata = trainAtt[j*MINI_BATCH_SIZE:(j+1)*MINI_BATCH_SIZE]
@@ -138,7 +144,8 @@ for i in range(1,EPOCHS+1):
 		s = (len(trainAtt)/MINI_BATCH_SIZE)*MINI_BATCH_SIZE
 		xdata = trainAtt[s:]	
 		ydata = trainAge[s:]
-		train_step.run(feed_dict={x: xdata, y_: ydata, keep_prob: DROPOUT})	
+		train_step.run(feed_dict={x: xdata, y_: ydata, keep_prob: DROPOUT})
+	accuracyArr.append(accuracy.eval(feed_dict={x: testAtt, y_: testAge, keep_prob: 1.0}))
 	if(i%PRINTA==0):
 		print("Epoch %d"%(i))
 		if(PRINTW):
@@ -146,6 +153,21 @@ for i in range(1,EPOCHS+1):
 		else:
 			print("training accuracy %g"%accuracy.eval(feed_dict={x: trainAtt, y_: trainAge, keep_prob: 1.0}))
 
+maxAcc = 0.0
+for i in accuracyArr:
+	if(i>maxAcc):
+		maxAcc=i
+
+print("Maximum Accuracy %g"%maxAcc)
+
 save_path = saver.save(sess, "abaloneNet")
 
 
+xPlot = []
+for i in range(1,EPOCHS+1):xPlot.append(i)
+
+plt.plot(xPlot, accuracyArr, 'b-', label='Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
